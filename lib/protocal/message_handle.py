@@ -8,6 +8,19 @@
 import json
 
 
+class BIGIOT_USER_TYPE:
+    BIGIOT_ALL = 0
+    BIGIOT_USER = 1
+    BIGIOT_DEVICE = 2
+    BIGIOT_GUSET = 3
+
+
+class BIGIOT_ALERT_TYPE:
+    BIGIOT_EMAIL = 0
+    BIGIOT_WEIBO = 1
+    BIGIOT_QQ = 2
+
+
 class Message_handle:
     def __init__(self):
         pass
