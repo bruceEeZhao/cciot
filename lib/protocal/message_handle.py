@@ -26,8 +26,12 @@ class Message_handle:
         pass
 
     def decode(self, json_mes):
-        self.__python_mes = json.loads(json_mes)
-        return self.__python_mes
+        if isinstance(json_mes, str):
+            try:
+                self.__python_mes = json.loads(json_mes)
+            except ValueError:
+                return False
+            return self.__python_mes
 
     def encode(self, python_mes):
         self.__json_mes = json.dumps(python_mes)

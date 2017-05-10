@@ -5,19 +5,21 @@
 # ROLE:     TODO (some explanation)
 # CREATED:  2017-05-07 14:49:03
 # MODIFIED: 2017-05-07 14:49:05
-from socket import socket, AF_INET, SOCK_STREAM
+# from socket import socket, AF_INET, SOCK_STREAM
 from .message_handle import Message_handle
 from ..database import database_handle
 from enum import Enum
 import threading
 import Queue
 import time
+import sys
+import socket
 
 
 class Cciot_tcp:
 
-    online_list = {}
-    online_addr = {}
+    online_list_device = {}
+    online_list_user = {}
     mes_queue = Queue.Queue()
 
     def __init__(self, ipaddress='127.0.0.1', port=8181):
@@ -25,7 +27,7 @@ class Cciot_tcp:
         init and band ip
         '''
         self.__ipaddress = (ipaddress, port)
-        self.__socket = socket(AF_INET, SOCK_STREAM)
+        self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__socket.bind(self.__ipaddress)
         self.__buffer_size = 1024  # »º³åÇø
 
@@ -42,55 +44,54 @@ class Cciot_tcp:
 
     def tcplink(self):
         print('Accept new connection from %s:%s...' % self.__addr)
-        while True:
-            raw_data = self.__sock.recv(self.__buffer_size)
-            print(raw_data)
-            pym = Message_handle()
-            python_mes = pym.decode(raw_data)
-            self.resolve(python_mes)
-        self.__socket.close()
-        print('Connection from %s:%s closed' % addr)
+        # while True:
+        try:
+            while True:
+                self.__sock.settimeout(60)
+                raw_data = self.__sock.recv(self.__buffer_size)
+                # print(raw_data)
+                pym = Message_handle()
+                python_mes = pym.decode(raw_data)
+                if python_mes:
+                    self.resolve(python_mes)
+                else:
+                    pass
+        except socket.timeout:
+            print('time out')
+            print('Connection from %s:%s closed' % self.__addr)
+            self.__socket.close()
 
     def close(self):
         self.__socket.close()
 
     def __del__(self):
-        self.close()
+        self.__socket.close()
 
     def resolve(self, python_mes):
-        if python_mes['M'] == 'checkin':
-            self.checkin(python_mes)
-        elif python_mes['M'] == 'update':
-            self.update(python_mes)
-        elif python_mes['M'] == 'login':
-            self.login(python_mes)
-        elif python_mes['M'] == 'logout':
-            self.logout(python_mes)
-        elif python_mes['M'] == 'say':
-            self.say(python_mes)
-        elif python_mes['M'] == 'isOL':
-            self.isOL(python_mes)
-        elif python_mes['M'] == 'status':
-            self.status(python_mes)
-        elif python_mes['M'] == 'alert':
-            self.alert(python_mes)
-        elif python_mes['M'] == 'time':
-            self.severtime(python_mes)
-        elif python_mes['M'] == 'checkout':
-            self.checkout(python_mes)
-        else:
+        function_dict = {'checkin': self.checkin, 'update': self.update,
+                         'login': self.login, 'logout': self.logout,
+                         'say': self.say, 'isOL': self.isOL,
+                         'status': self.status, 'alert': self.alert,
+                         'time': self.severtime, 'checkout': self.checkout}
+        r = python_mes['M']
+        if r not in function_dict:
             # do nothing, later can add function
             print('no such command')
+        else:
+            function_dict[r](python_mes)
 
     def checkin(self, python_mes):
-        id = 'D' + python_mes['ID']
-        mes = {'M': 'checkinok', 'ID': id, 'T': time.time(), 'NAME': 'zz'}
-        # mes2 = {'M': 'login', 'ID': id, 'T': time.time(), 'NAME': 'zz'}
-        # print(mes)
-        j_mes = Message_handle()
-        jmes = j_mes.encode(mes) + "\n"
         if self.accessable(python_mes):
-            self.__sock.send(jmes)
+            name = self.online_list_device[int(python_mes['ID'])][2]
+            deviceid = 'D' + python_mes['ID']
+            mes = {'M': 'checkinok', 'ID': deviceid, 'T': time.time(),
+                   'NAME': name}
+            j_mes = Message_handle()
+            jmes = j_mes.encode(mes) + "\n"
+            try:
+                self.__sock.send(jmes)
+            except socket.error, e:
+                print("error sending data:%s" % e)
         else:
             pass
 
@@ -127,13 +128,21 @@ class Cciot_tcp:
     def accessable(self, python_mes):
         deviceid = int(python_mes['ID'])
     #    print(deviceid)
-        if deviceid in self.online_list:
+        if deviceid in self.online_list_device:
             return True
         else:
             dat = database_handle.Cciot_database()
-            if dat.inquire(deviceid):
-                self.online_list[deviceid] = python_mes
-                self.online_addr[deviceid] = self.__addr
+        #    if dat.inquire_device(python_mes):
+        #        self.online_list[deviceid] = python_mes
+        #        self.online_addr[deviceid] = self.__addr
+            device = dat.inquire_device(python_mes)
+            if device:
+                sock = self.__sock
+                addr = self.__addr
+                device_name = device[1]
+                self.online_list_device[deviceid] = [sock, addr, device_name]
+                dat.close()
                 return True
             else:
+                dat.close()
                 return False
