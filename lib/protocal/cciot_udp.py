@@ -11,7 +11,7 @@ from ..database import database_handle
 import Queue
 
 
-class Cciot_upd:
+class Cciot_udp:
     online_list = {}
     online_self.__addr = {}
     mes_queue = Queue.Queue()
@@ -76,15 +76,24 @@ class Cciot_upd:
         pass
 
     def accessable(self, python_mes):
-        deviceid = python_mes['ID']
-    #    print(deviceid)
-        if deviceid in self.online_list:
+        deviceid = int(python_mes['ID'])
+        if deviceid in online_list_device:
+            sock = self.__sock
+            addr = self.__addr
+            device_name = online_list_device[deviceid][2]
+            online_list_device[deviceid] = [sock, addr, device_name]
+            # closesock.close()
             return True
         else:
             dat = database_handle.Cciot_database()
-            if dat.inquire(deviceid):
-                self.online_list[deviceid] = python_mes
-                self.online_addr[deviceid] = self.__addr
+            device = dat.inquire_device(python_mes)
+            if device:
+                sock = self.__sock
+                addr = self.__addr
+                device_name = device[1]
+                online_list_device[deviceid] = [sock, addr, device_name]
+                dat.close()
                 return True
             else:
+                dat.close()
                 return False
