@@ -6,6 +6,7 @@
 # CREATED:  2017-04-20 12:00:07
 # MODIFIED: 2017-04-20 12:00:10
 import MySQLdb
+import hashlib
 
 
 class Cciot_database:
@@ -23,13 +24,33 @@ class Cciot_database:
         '''
         pass
 
+    def adduser(self, python_mes):
+        cur = self.__coon.cursor()
+        sql = "select * from IotUser"
+        total = cur.execute(sql)
+        uid = total + 1
+        apikey = hashlib.md5(str(uid)).hexdigest()[0:6]
+        sql = "insert into IotUser values(%d, '%s', '%s', '%s', '%s', 0, 0, null, null)" % (
+            total + 1, python_mes['NAME'], apikey, python_mes['PWD'],
+            python_mes['EMAIL'])
+        cur.execute(sql)
+        self.__coon.commit()
+        return uid, apikey
+
     def deldata(self):
         '''
         delete data from database
         '''
         pass
 
-    def update(self):
+    def update_user(self, id_num, off_time, ip):
+        cur = self.__coon.cursor()
+        sql = "update IotUser set U_lasttime = '%s', U_lastip = '%s' \
+               where U_id = %d " % (off_time, ip, id_num)
+        cur.execute(sql)
+        self.__coon.commit()
+
+    def update_device(self, did):
         '''
         update new data into database
         '''
@@ -44,6 +65,17 @@ class Cciot_database:
         cur = self.__coon.cursor()
         sql = "select * from IotDevice  \
                where D_id=%d and D_apikey= '%s' " % (deviceid, apikey)
+        cur.execute(sql)
+        return cur.fetchone()
+
+    def inquire_user(self, python_mes):
+        if((python_mes['ID'][1:]).isdigit() is False):
+            return False
+        userid = int(python_mes['ID'][1:])
+        passwd = python_mes['PWD']
+        cur = self.__coon.cursor()
+        sql = sql = "select * from IotUser  \
+               where U_id=%d and U_passwd= '%s' " % (userid, passwd)
         cur.execute(sql)
         return cur.fetchone()
 

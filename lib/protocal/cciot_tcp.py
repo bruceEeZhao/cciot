@@ -33,9 +33,9 @@ class Cciot_tcp:
         self.__buffer_size = 1024  # »º³åÇø
 
     def receive(self):
-        # '''
-        # accept message from socket,put message into dict£¬then decode
-        # '''
+        '''
+        accept message from socket,put message into dict£¬then decode
+        '''
         self.__socket.listen(10)
         print('Waiting for connection...')
         while True:
@@ -74,7 +74,9 @@ class Cciot_tcp:
                          'say': self.say, 'isOL': self.isOL,
                          'status': self.status, 'alert': self.alert,
                          'time': self.severtime, 'checkout': self.checkout,
-                         'signalsay': self.signalsay}
+                         'signalsay': self.signalsay,
+                         'register': self.register,    # user register
+                         }
         r = python_mes['M']
         if r not in function_dict:
             # do nothing, later can add function
@@ -101,8 +103,36 @@ class Cciot_tcp:
     def update(self, python_mes):
         pass
 
-    def login(self, python_mes):
-        pass
+    def login(self, python_mes):  # not scitified, need to rewrite
+        mes = {}
+        if self.ifonline(python_mes['ID']):
+            pwd = python_mes['PWD']
+            uid = int(python_mes['ID'][1:])
+            if pwd == online_list_user[uid][3]:
+                mes['ONLINE'] = 'True'
+            else:
+                mes['ONLINE'] = 'False'
+        else:
+            dat = database_handle.Cciot_database()
+            user = dat.inquire_user(python_mes)
+            dat.close()
+            if user:
+                sock = self.__sock
+                addr = self.__addr
+                user_name = user[1]
+                user_id = user[0]
+                user_pwd = user[3]
+                online_list_user[user_id] = [sock, addr, user_name, user_pwd]
+                mes['ONLINE'] = 'True'
+            else:
+                mes['ONLINE'] = 'False'
+        mes['M'] = 'login'
+        j_mes = Message_handle()
+        jmes = j_mes.encode(mes) + "\n"
+        try:
+            self.__sock.send(jmes)
+        except socket.error, e:
+            print("error sending data:%s" % e)
 
     def logout(self, python_mes):
         pass
@@ -243,6 +273,18 @@ class Cciot_tcp:
             except socket.error, e:
                 print("error sending data:%s" % e)
 
+    def register(self, python_mes):
+        dat = database_handle.Cciot_database()
+        userid, apikey = dat.adduser(python_mes)
+        mes = {'M': 'regist', 'ID': userid, 'K': apikey}
+        j_mes = Message_handle()
+        jmes = j_mes.encode(mes) + "\n"
+        try:
+            self.__sock.send(jmes)
+        except socket.error, e:
+            print("error sending data:%s" % e)
+        dat.close()
+
     def accessable(self, python_mes):
         deviceid = int(python_mes['ID'])
         if deviceid in online_list_device:
@@ -267,6 +309,8 @@ class Cciot_tcp:
 
     def ifonline(self, equment_id):
         id_type = equment_id[0:1]
+        if((equment_id[1:]).isdigit() is False):
+            return False
         id_num = int(equment_id[1:])
         if(id_type == 'U'):
             if id_num in online_list_user:
@@ -278,3 +322,34 @@ class Cciot_tcp:
                 return True
             else:
                 return False
+        else:
+            return False
+
+    def equ_offline(self, equment_id):
+        id_type = equment_id[0:1]
+        id_num = int(equment_id[1:])
+        if(id_type == 'U'):
+            user_offline(equment_id)
+        elif(id_type == 'D'):
+            dev_offline(equment_id)
+        else:
+            pass
+
+    def user_offline(self, equment_id):
+        id_type = equment_id[0:1]
+        id_num = int(equment_id[1:])
+        off_time = time.strftime("%Y-%m-%d %X", time.localtime())
+        ip = online_list_user[id_num][1][0]
+        mutex.acquire()
+        dat = database_handle.Cciot_database()
+        dat.update_user(id_num, off_time, ip)
+        dat.close()
+        online_list_user.pop(id_num)
+        mutex.release()
+
+    def dev_offline(self, equment_id):
+        id_type = equment_id[0:1]
+        id_num = int(equment_id[1:])
+        mutex.acquire()
+        online_list_device.pop(id_num)
+        mutex.release()
