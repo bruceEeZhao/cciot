@@ -46,21 +46,21 @@ class Cciot_tcp:
     def tcplink(self):
         print('Accept new connection from %s:%s...' % self.__addr)
         # while True:
-        try:
-            while True:
-                self.__sock.settimeout(60)
-                raw_data = self.__sock.recv(self.__buffer_size)
-                # print(raw_data)
-                pym = Message_handle()
-                python_mes = pym.decode(raw_data)
-                if python_mes:
-                    self.resolve(python_mes)
-                else:
-                    pass
-        except socket.timeout:
-            print('time out')
-            print('Connection from %s:%s closed' % self.__addr)
-            self.__socket.close()
+        # try:
+        while True:
+                # self.__sock.settimeout(60)
+            raw_data = self.__sock.recv(self.__buffer_size)
+            # print(raw_data)
+            pym = Message_handle()
+            python_mes = pym.decode(raw_data)
+            if python_mes:
+                self.resolve(python_mes)
+            else:
+                pass
+        # except socket.timeout:
+        #    print('time out')
+        #    print('Connection from %s:%s closed' % self.__addr)
+        #    self.__socket.close()
 
     def close(self):
         self.__socket.close()
@@ -187,12 +187,10 @@ class Cciot_tcp:
             fromid = int(python_mes['ID'][1:])
             if 'SIGN' in python_mes:
                 mes = {'M': 'say', 'ID': python_mes['ID'],
-                       'NAME': online_list_device[fromid][2],
                        'C': python_mes['C'], 'SIGN': python_mes['SIGN'],
                        'T': time.time()}
             else:
                 mes = {'M': 'say', 'ID': python_mes['ID'],
-                       'NAME': online_list_device[fromid][2],
                        'C': python_mes['C'], 'T': time.time()}
             j_mes = Message_handle()
             jmes = j_mes.encode(mes) + "\n"

@@ -39,10 +39,10 @@ class MainPage(object):
         t = threading.Thread(target=self.recvthread)
         t.start()
 
-    def send_chat(self):
-        data = self.t_text.get(1.0, 'end').strip().encode('utf-8')
+    def send_chat(self, event):
+        data = self.t_text.get(1.0, 'end').strip()
         self.r_text.insert('end', 'command:' + data + '\n')
-        self.sock.send(data)
+        self.sock.send((data + '\n').encode())
         self.t_text.delete(1.0, 'end')
         return 'break'
 
@@ -52,4 +52,4 @@ class MainPage(object):
             if not buf:
                 break
             self.r_text.insert('end', 'recv:' + buf.decode() + '\n')
-            # self.sock.close()
+        #    self.sock.close()
